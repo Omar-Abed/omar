@@ -14,10 +14,12 @@
 
 /* $Id$ */
 
-
-phpgw::import_class('phpgwapi.datetime');
-
-class uiaddressbook
+	phpgw::import_class('phpgwapi.uicommon');
+	phpgw::import_class('phpgwapi.datetime');
+	
+	include_class('addressbook', 'addressbook', 'inc/model/');
+	
+class addressbook_uiaddressbook extends phpgwapi_uicommon
 {
 	var $contacts;
 	var $bo;
@@ -106,10 +108,24 @@ class uiaddressbook
 		'java_script'	=> true,
 	);
 
+	protected
+		$fields,
+		$permissions,
+		$currentapp;
+			
 	function __construct()
 	{
+		parent::__construct();
+		$GLOBALS['phpgw_info']['flags']['app_header'] .= '::' . lang('addressbook');
+		$this->bo = createObject('addressbook.boaddressbook');
+		$this->cats = & $this->bo->cats;
+		$this->fields = addressbook_addressbook::get_fields();
+		$this->permissions = addressbook_addressbook::get_instance()->get_permission_array();
+		$this->currentapp = $GLOBALS['phpgw_info']['flags']['currentapp'];
+		self::set_active_menu("{$this->currentapp}::addressbook");
+			
 		//$GLOBALS['phpgw']->country	= CreateObject('phpgwapi.country'); // commented out as it is never used - skwashd nov07
-		$GLOBALS['phpgw']->browser	= CreateObject('phpgwapi.browser');
+		/*$GLOBALS['phpgw']->browser	= CreateObject('phpgwapi.browser');
 		$this->nextmatchs			= CreateObject('phpgwapi.nextmatchs');
 		$this->custom_fields		= CreateObject('addressbook.uifields');
 		$this->bo					= CreateObject('addressbook.boaddressbook');
@@ -137,7 +153,7 @@ class uiaddressbook
 		$this->tab_others			= lang('Others');
 		$this->tab_extra			= lang('More data');
 		$this->nonavbar 			= phpgw::get_var('nonavbar','bool');
-		$this->_set_sessiondata();
+		$this->_set_sessiondata();*/
 	}
 
 	function _set_sessiondata()
@@ -190,6 +206,84 @@ class uiaddressbook
 
 	function index()
 	{
+			self::set_active_menu("{$this->currentapp}::vendor::application");
+			if (empty($this->permissions[PHPGW_ACL_READ]))
+			{
+
+				$message = '';
+				if($this->currentapp == 'eventplannerfrontend')
+				{
+					$GLOBALS['phpgw']->redirect_link('login.php', array('after' => 'eventplannerfrontend.uiapplication.index'));
+					$message = lang('you need to log in to access this page.');
+				}
+				phpgw::no_access(false, $message);
+			}
+
+			if (phpgw::get_var('phpgw_return_as') == 'json')
+			{
+				return $this->query();
+			}
+
+			phpgwapi_jquery::load_widget('autocomplete');
+
+			if($this->currentapp == 'eventplanner')
+			{
+				$function_msg = lang('application');
+			}
+			else
+			{
+				$function_msg = lang('my applications');
+			}
+
+
+			$data = array(
+				'datatable_name' => $function_msg,
+				'form' => array(
+					'toolbar' => array(
+						'item' => array(
+						)
+					)
+				),
+				'datatable' => array(
+					'source' => self::link(array(
+						'menuaction' => "{$this->currentapp}.uiapplication.index",
+						'phpgw_return_as' => 'json'
+					)),
+					'allrows' => true,
+					'sorted_by'	=> array('key' => $this->currentapp == 'eventplanner' ? 6 : 3, 'dir' => 'asc'),
+					'new_item' => self::link(array('menuaction' => "{$this->currentapp}.uiapplication.add")),
+					'editor_action' => '',
+					'field' => parent::_get_fields()
+				)
+			);
+
+
+			$parameters = array(
+				'parameter' => array(
+					array(
+						'name' => 'id',
+						'source' => 'id'
+					)
+				)
+			);
+
+			$data['datatable']['actions'][] = array
+				(
+				'my_name' => 'edit',
+				'text' => lang('edit'),
+				'action' => self::link(array
+					(
+					'menuaction' => "{$this->currentapp}.uiapplication.edit"
+				)),
+				'parameters' => json_encode($parameters)
+			);
+
+			self::add_javascript($this->currentapp, 'portico', 'application.index.js');
+			phpgwapi_jquery::load_widget('numberformat');
+
+			self::render_template_xsl('datatable_jquery', $data);
+			
+			
 		if(phpgw::get_var('section'))
 		{
 			$this->section = phpgw::get_var('section');
