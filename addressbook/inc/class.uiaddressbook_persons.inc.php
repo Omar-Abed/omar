@@ -69,20 +69,6 @@ class addressbook_uiaddressbook_persons extends phpgwapi_uicommon
 	*/ 
 	var $owner;
 
-	// 		//This are the principal tabs
-	// 		var $tab_main_persons = 'Persons';
-	// 		var $tab_main_organizations = 'Organizations';
-
-	//This are the tabs for each principal tab
-	// 		var $tab_person_data = 'Person Data';
-	// 		var $tab_org_data = 'Org Data';
-	// 		var $tab_orgs = 'Orgs';
-	// 		var $tab_persons = 'Persons';
-	// 		var $tab_cats = 'Categories';
-	// 		var $tab_comms = 'Communications';
-	// 		var $tab_address = 'Address';
-	// 		var $tab_others = 'Others';
-	// 		var $tab_extra = 'More data';
 
 	//Public functions
 	var $public_functions = array
@@ -244,23 +230,102 @@ class addressbook_uiaddressbook_persons extends phpgwapi_uicommon
 			)
 		);
 
+		$parameters_2 = array(
+			'parameter' => array(
+				array(
+					'name' => 'ab_id',
+					'source' => 'contact_id'
+				)
+			)
+		);
+		
+		$data['datatable']['actions'][] = array
+			(
+			'my_name' => 'import',
+			'text' => lang('Import'),
+			'action' => self::link(array
+				(
+				'menuaction' => "{$this->currentapp}.uiaddressbook.edit"
+			)),
+			'className' => '',
+			'parameters' => json_encode($parameters)
+		);
+				
+		$data['datatable']['actions'][] = array
+			(
+			'my_name' => 'add_vcard',
+			'text' => lang('Add Vcard'),
+			'action' => self::link(array
+				(
+				'menuaction' => "{$this->currentapp}.uivcard.in"
+			)),
+			'className' => '',
+			'parameters' => json_encode(array())
+		);
+				
+		$data['datatable']['actions'][] = array
+			(
+			'my_name' => 'categorize',
+			'text' => lang('categorize'),
+			'action' => self::link(array
+				(
+				'menuaction' => "{$this->currentapp}.uicategorize_contacts.index"
+			)),
+			'className' => '',
+			'parameters' => json_encode(array())
+		);
+				
+		$data['datatable']['actions'][] = array
+			(
+			'my_name' => 'view',
+			'text' => lang('view'),
+			'action' => $GLOBALS['phpgw']->link('/index.php', array
+				(
+				'menuaction' => "{$this->currentapp}.uiaddressbook.view_person"
+			)),
+			'parameters' => json_encode($parameters_2)
+		);
+							
 		$data['datatable']['actions'][] = array
 			(
 			'my_name' => 'edit',
 			'text' => lang('edit'),
 			'action' => self::link(array
 				(
-				'menuaction' => "{$this->currentapp}.uiaddressbook.edit"
+				'menuaction' => "{$this->currentapp}.uiaddressbook.edit_person"
 			)),
-			'parameters' => json_encode($parameters)
+			'parameters' => json_encode($parameters_2)
 		);
+
+		$data['datatable']['actions'][] = array
+			(
+			'my_name' => 'vcard',
+			'text' => lang('vcard'),
+			'action' => self::link(array
+				(
+				'menuaction' => "{$this->currentapp}.uivcard.out"
+			)),
+			'parameters' => json_encode($parameters_2)
+		);
+
+
 //print_r($data); die;
 		self::render_template_xsl('datatable_jquery', $data);
 	}
 
 	public function query()
 	{
-		$draw = phpgw::get_var('draw', 'int');
+			$search = phpgw::get_var('search');
+			$order = phpgw::get_var('order');
+			$draw = phpgw::get_var('draw', 'int');
+			$columns = phpgw::get_var('columns');
+		
+			$start = phpgw::get_var('start', 'int', 'REQUEST', 0);
+			$results = phpgw::get_var('length', 'int', 'REQUEST', 0);
+			$query = $search['value'];
+			$ordering = $columns[$order[0]['column']]['data'];
+			$sort = $order[0]['dir'];
+			
 			
 		if(!isset($this->cat_id) && isset($this->prefs['default_category']) )
 		{
@@ -338,9 +403,15 @@ class addressbook_uiaddressbook_persons extends phpgwapi_uicommon
 		//$criteria = $this->bo->criteria_contacts($this->access, $category_filter, $fields_search, $this->query);
 		$criteria = $this->bo->criteria_contacts($this->access, array(), $this->qfield, $this->query, $fields_search);
 		$total_all_persons = $this->bo->get_count_persons($criteria);
-		$entries = $this->bo->get_persons($fields, 0, 10, $this->order, $this->sort, '', $criteria);
-	
-		$result_data = array('results' => $entries);
+		$entries = $this->bo->get_persons($fields, $start, $results, $ordering, $sort, '', $criteria);
+		
+		foreach ($entries as &$entry)
+		{
+			$entry['owner'] = $GLOBALS['phpgw']->accounts->id2name($entry['owner']);
+		}
+
+		$values = array_values($entries);
+		$result_data = array('results' => $values);
 
 		$result_data['total_records'] = $total_all_persons;
 		$result_data['draw'] = $draw;
